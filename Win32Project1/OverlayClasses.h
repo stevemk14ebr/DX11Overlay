@@ -66,6 +66,8 @@ protected:
 	IDXGISwapChain* m_pSwapChain;
 	D3D_DRIVER_TYPE m_DriverType;
 	D3D11_VIEWPORT m_Viewport;
+	D3D11_BLEND_DESC m_BlendStateDesc;
+	ID3D11BlendState* m_pBlendState;
 };
 namespace
 {
@@ -173,6 +175,20 @@ bool DXOverlay::InitializeDX()
 	ReleaseCOM(dxgiDevice);
 	ReleaseCOM(dxgiAdapter);
 	ReleaseCOM(dxgiFactory);
+
+	ZeroMemory(&m_BlendStateDesc, sizeof(D3D11_BLEND_DESC)); 
+
+	// Create an alpha enabled blend state description. 
+	m_BlendStateDesc.RenderTarget[0].BlendEnable = TRUE; 
+	m_BlendStateDesc.RenderTarget[0].SrcBlend =D3D11_BLEND_SRC_ALPHA; 
+	m_BlendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_SRC_ALPHA; 
+	m_BlendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD; 
+	m_BlendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ZERO; 
+	m_BlendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO; 
+	m_BlendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD; 
+	m_BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f; 
+	HR(m_pDevice->CreateBlendState(&m_BlendStateDesc,&m_pBlendState));
+
 	OnResize();
 }
 void DXOverlay::OnResize()
