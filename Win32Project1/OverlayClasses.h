@@ -109,6 +109,9 @@ bool DXOverlay::MakeWindow()
 	SetLayeredWindowAttributes(m_MainWndHandle, 0, RGB(0, 0, 0), LWA_COLORKEY);
 	ShowWindow( m_MainWndHandle, SW_SHOW);
 	
+	const MARGINS Margin = { 0, 0, m_width, m_height };
+	DwmExtendFrameIntoClientArea(m_MainWndHandle,&Margin);
+
 	return true;
 }
 bool DXOverlay::InitializeDX()
