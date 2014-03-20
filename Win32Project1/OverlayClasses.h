@@ -46,7 +46,7 @@ public:
 	virtual void OnResize();
 	virtual void DrawScene()=0;
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
+	void DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color);
 protected:
 	String WindowTitle;
 	UINT m_width;
@@ -93,7 +93,7 @@ bool DXOverlay::MakeWindow()
 	wcex.hIcon			= LoadIcon(0, IDI_APPLICATION);
 	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
 	wcex.hbrBackground	= (HBRUSH)CreateSolidBrush(RGB(0, 0, 0));
-	wcex.lpszMenuName	= MAKEINTRESOURCE(109);
+	wcex.lpszMenuName	= WindowTitle.c_str();
 	wcex.lpszClassName	= WindowTitle.c_str();
 	wcex.hIconSm		= LoadIcon(0, IDI_APPLICATION);
 
@@ -109,7 +109,7 @@ bool DXOverlay::MakeWindow()
 	SetLayeredWindowAttributes(m_MainWndHandle, 0, RGB(0, 0, 0), LWA_COLORKEY);
 	ShowWindow( m_MainWndHandle, SW_SHOW);
 	
-	const MARGINS Margin = { 0, 0, m_width, m_height };
+	const MARGINS Margin = { -1 };
 	DwmExtendFrameIntoClientArea(m_MainWndHandle,&Margin);
 
 	return true;
@@ -369,4 +369,8 @@ DXOverlay::~DXOverlay()
 		m_pImmediateDeviceContext->ClearState();
 	ReleaseCOM(m_pImmediateDeviceContext);
 	ReleaseCOM(m_pSwapChain);
+}
+void DXOverlay::DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color)
+{
+	
 }
