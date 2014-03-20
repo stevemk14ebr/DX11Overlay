@@ -47,6 +47,10 @@ public:
 	virtual void DrawScene()=0;
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color);
+	void DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMFLOAT4 color);
+	void DrawCircle(XMFLOAT2 center,float radius,int samples,XMFLOAT4 color);
+	void DrawText(XMFLOAT2 position,const char* format,...);
+	void DrawTexture(XMFLOAT2 position);
 protected:
 	String WindowTitle;
 	UINT m_width;
@@ -110,7 +114,7 @@ bool DXOverlay::MakeWindow()
 	ShowWindow( m_MainWndHandle, SW_SHOW);
 	
 	const MARGINS Margin = { -1 };
-	DwmExtendFrameIntoClientArea(m_MainWndHandle,&Margin);
+	HR(DwmExtendFrameIntoClientArea(m_MainWndHandle,&Margin));
 
 	return true;
 }
@@ -371,6 +375,22 @@ DXOverlay::~DXOverlay()
 	ReleaseCOM(m_pSwapChain);
 }
 void DXOverlay::DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color)
+{
+	
+}
+void DXOverlay::DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color)
+{
+
+}
+void DXOverlay::DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMFLOAT4 color)
+{
+
+}
+void DXOverlay::DrawCircle(XMFLOAT2 center,float radius,int samples,XMFLOAT4 color)
+{
+
+}
+void DXOverlay::DrawTexture(XMFLOAT2 position)
 {
 	
 }
