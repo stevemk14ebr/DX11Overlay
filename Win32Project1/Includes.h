@@ -16,8 +16,13 @@
 #include <windowsx.h>
 #include <Uxtheme.h>
 #include <dwmapi.h>
+#include <d3dx11effect.h>
+#include <D3DX10math.h>
+#include <d3d9types.h>
 
+#pragma comment(lib, "Effects11.lib");
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
 #pragma comment(lib, "DXErr.lib")
 #pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib,"d3dcompiler.lib")

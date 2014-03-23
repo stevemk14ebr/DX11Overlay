@@ -1,5 +1,5 @@
 #define ReleaseCOM(x) { if(x){ x->Release(); x = 0; } }
-
+#include "shader_fx.h"
 
 
 
@@ -33,6 +33,11 @@ typedef std::wstring String;
 #endif 
 
 
+struct Vertex
+{
+	XMFLOAT3 Position;
+	XMCOLOR Color;
+};
 
 class DXOverlay
 {
@@ -46,9 +51,9 @@ public:
 	virtual void OnResize();
 	virtual void DrawScene()=0;
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	void DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color);
-	void DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMFLOAT4 color);
-	void DrawCircle(XMFLOAT2 center,float radius,int samples,XMFLOAT4 color);
+	void DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,int color[4]);
+	void DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMCOLOR color);
+	void DrawCircle(XMFLOAT2 center,float radius,int samples,XMCOLOR color);
 	void DrawText(XMFLOAT2 position,const char* format,...);
 	void DrawTexture(XMFLOAT2 position);
 protected:
@@ -72,6 +77,12 @@ protected:
 	D3D11_VIEWPORT m_Viewport;
 	D3D11_BLEND_DESC m_BlendStateDesc;
 	ID3D11BlendState* m_pBlendState;
+	D3D11_BUFFER_DESC m_BufferDesc;
+	ID3D11Buffer* m_pVertexBuffer;
+	ID3D10Blob* m_ShaderFX;
+	ID3DX11Effect* m_pShaderEffect;
+	ID3DX11EffectTechnique* m_pTechnique;
+	ID3D11InputLayout* m_pInputLayout;
 };
 namespace
 {
@@ -196,6 +207,30 @@ bool DXOverlay::InitializeDX()
 	m_BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f; 
 	HR(m_pDevice->CreateBlendState(&m_BlendStateDesc,&m_pBlendState));
 
+	m_BufferDesc.Usage            = D3D11_USAGE_DYNAMIC; 
+	m_BufferDesc.ByteWidth        = 31 * sizeof(Vertex); 
+	m_BufferDesc.BindFlags        = D3D11_BIND_VERTEX_BUFFER; 
+	m_BufferDesc.CPUAccessFlags    = D3D11_CPU_ACCESS_WRITE; 
+	m_BufferDesc.MiscFlags        = 0; 
+	HR(m_pDevice->CreateBuffer(&m_BufferDesc,NULL,&m_pVertexBuffer));
+
+	m_ShaderFX=NULL;
+	ID3D10Blob* pError=NULL;
+	HR(D3DX11CompileFromMemory(shaderRaw,strlen(shaderRaw),"FillTechFx",NULL,NULL,"FillTech","fx_5_0",NULL,NULL,NULL,&m_ShaderFX,&pError,NULL));
+	HR(D3DX11CreateEffectFromMemory(m_ShaderFX->GetBufferPointer(),m_ShaderFX->GetBufferSize(),0,m_pDevice,&m_pShaderEffect));
+	ReleaseCOM(m_ShaderFX);
+
+	m_pTechnique=m_pShaderEffect->GetTechniqueByName("FillTech");
+	
+	D3D11_INPUT_ELEMENT_DESC lineLayout[] = 
+	{ 
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },   
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 } 
+	}; 
+
+	D3DX11_PASS_DESC passDesc;
+	HR(m_pTechnique->GetPassByIndex(0)->GetDesc(&passDesc));
+	HR(m_pDevice->CreateInputLayout(lineLayout,sizeof(lineLayout)/sizeof(lineLayout[0]),passDesc.pIAInputSignature, passDesc.IAInputSignatureSize, &m_pInputLayout));
 	OnResize();
 }
 void DXOverlay::OnResize()
@@ -374,19 +409,61 @@ DXOverlay::~DXOverlay()
 	ReleaseCOM(m_pImmediateDeviceContext);
 	ReleaseCOM(m_pSwapChain);
 }
-void DXOverlay::DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color)
+void DXOverlay::DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,int color[4])
 {
-	
+	D3D11_VIEWPORT vp; 
+	UINT vpnum=1;
+	m_pImmediateDeviceContext->RSGetViewports(&vpnum,&vp);
+
+	float x0 = 2.0f * ( start.x - 0.5f ) / vp.Width - 1.0f; 
+	float y0 = 1.0f - 2.0f * ( start.y - 0.5f ) / vp.Height; 
+	float x1 = 2.0f * ( end.x - 0.5f ) / vp.Width - 1.0f; 
+	float y1 = 1.0f - 2.0f * ( end.y - 0.5f ) / vp.Height; 
+
+	D3D11_MAPPED_SUBRESOURCE mapData;
+	Vertex* pVertex;
+
+	HR(m_pImmediateDeviceContext->Map(m_pVertexBuffer,NULL,D3D11_MAP_WRITE_DISCARD,NULL,&mapData));
+	pVertex=(Vertex*)mapData.pData;
+
+	pVertex[0].Position.x=x0;
+	pVertex[0].Position.y=y0;
+	pVertex[0].Position.z=0;
+	pVertex[0].Color.r=color[0];
+	pVertex[0].Color.g=color[1];
+	pVertex[0].Color.b=color[2];
+	pVertex[0].Color.a=color[3];
+
+	pVertex[1].Position.x=x1;
+	pVertex[1].Position.y=y1;
+	pVertex[1].Position.z=0;
+	pVertex[1].Color.r=color[0];
+	pVertex[1].Color.g=color[1];
+	pVertex[1].Color.b=color[2];
+	pVertex[1].Color.a=color[3];
+
+	m_pImmediateDeviceContext->Unmap(m_pVertexBuffer,NULL);
+	m_pImmediateDeviceContext->IASetInputLayout(m_pInputLayout);
+	UINT Stride=sizeof(Vertex);
+	UINT Offset=0;
+
+	m_pImmediateDeviceContext->IASetVertexBuffers(0,1,&m_pVertexBuffer,&Stride,&Offset);
+	m_pImmediateDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+
+	D3DX11_TECHNIQUE_DESC tech;
+	HR(m_pTechnique->GetDesc(&tech));
+	for(int i=0;i<tech.Passes;i++)
+	{
+		m_pTechnique->GetPassByIndex(i)->Apply(0,m_pImmediateDeviceContext);
+		m_pImmediateDeviceContext->Draw(2,0);
+	}
 }
-void DXOverlay::DrawLine(XMFLOAT2 start,XMFLOAT2 end,XMFLOAT4 color)
+
+void DXOverlay::DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMCOLOR color)
 {
 
 }
-void DXOverlay::DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMFLOAT4 color)
-{
-
-}
-void DXOverlay::DrawCircle(XMFLOAT2 center,float radius,int samples,XMFLOAT4 color)
+void DXOverlay::DrawCircle(XMFLOAT2 center,float radius,int samples,XMCOLOR color)
 {
 
 }

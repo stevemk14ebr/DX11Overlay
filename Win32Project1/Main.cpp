@@ -26,11 +26,15 @@ void D3DApp::DrawScene()
 {
 	assert(m_pImmediateDeviceContext);
 	assert(m_pSwapChain);
-	
-	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	float clearColor[4]={1.0f,0.0f,0.0f,0.2f};
 	float blend[4]={0};
+		
 	m_pImmediateDeviceContext->ClearRenderTargetView(m_pRenderTargetView, reinterpret_cast<const float*>(&clearColor));
 	m_pImmediateDeviceContext->OMSetBlendState( m_pBlendState, blend, 0xffffffff ); 
+
+	int colors[4]={0,0,1,1};
+	DrawLine(D3DXVECTOR2(0,10),D3DXVECTOR2(100,100),colors);
 	HR(m_pSwapChain->Present(0, 0));
 }
 
