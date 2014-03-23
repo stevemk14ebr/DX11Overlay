@@ -51,11 +51,11 @@ public:
 	virtual void OnResize();
 	virtual void DrawScene()=0;
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	void DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,int color[4]);
-	void DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMCOLOR color);
-	void DrawCircle(XMFLOAT2 center,float radius,int samples,XMCOLOR color);
-	void DrawText(XMFLOAT2 position,const char* format,...);
-	void DrawTexture(XMFLOAT2 position);
+	void DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,float color[4]);
+	void DrawRect(D3DXVECTOR2 lowerleft,D3DXVECTOR2 upperright,float color[4]);
+	void DrawCircle(D3DXVECTOR2 center,float radius,int samples,float color[4]);
+	void DrawText(D3DXVECTOR2 position,const char* format,...);
+	void DrawTexture(D3DXVECTOR2 position);
 protected:
 	String WindowTitle;
 	UINT m_width;
@@ -409,7 +409,7 @@ DXOverlay::~DXOverlay()
 	ReleaseCOM(m_pImmediateDeviceContext);
 	ReleaseCOM(m_pSwapChain);
 }
-void DXOverlay::DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,int color[4])
+void DXOverlay::DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,float color[4])
 {
 	D3D11_VIEWPORT vp; 
 	UINT vpnum=1;
@@ -429,18 +429,18 @@ void DXOverlay::DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,int color[4])
 	pVertex[0].Position.x=x0;
 	pVertex[0].Position.y=y0;
 	pVertex[0].Position.z=0;
-	pVertex[0].Color.r=color[0];
-	pVertex[0].Color.g=color[1];
-	pVertex[0].Color.b=color[2];
-	pVertex[0].Color.a=color[3];
+	pVertex[0].Color.r=color[0]/255.0f;
+	pVertex[0].Color.g=color[1]/255.0f;
+	pVertex[0].Color.b=color[2]/255.0f;
+	pVertex[0].Color.a=color[3]/255.0f;
 
 	pVertex[1].Position.x=x1;
 	pVertex[1].Position.y=y1;
 	pVertex[1].Position.z=0;
-	pVertex[1].Color.r=color[0];
-	pVertex[1].Color.g=color[1];
-	pVertex[1].Color.b=color[2];
-	pVertex[1].Color.a=color[3];
+	pVertex[1].Color.r=color[0]/255.0f;
+	pVertex[1].Color.g=color[1]/255.0f;
+	pVertex[1].Color.b=color[2]/255.0f;
+	pVertex[1].Color.a=color[3]/255.0f;
 
 	m_pImmediateDeviceContext->Unmap(m_pVertexBuffer,NULL);
 	m_pImmediateDeviceContext->IASetInputLayout(m_pInputLayout);
@@ -459,15 +459,15 @@ void DXOverlay::DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,int color[4])
 	}
 }
 
-void DXOverlay::DrawRect(XMFLOAT2 lowerleft,XMFLOAT2 upperright,XMCOLOR color)
+void DXOverlay::DrawRect(D3DXVECTOR2 lowerleft,D3DXVECTOR2 upperright,float color[4])
 {
 
 }
-void DXOverlay::DrawCircle(XMFLOAT2 center,float radius,int samples,XMCOLOR color)
+void DXOverlay::DrawCircle(D3DXVECTOR2 center,float radius,int samples,float color[4])
 {
 
 }
-void DXOverlay::DrawTexture(XMFLOAT2 position)
+void DXOverlay::DrawTexture(D3DXVECTOR2 position)
 {
 	
 }
