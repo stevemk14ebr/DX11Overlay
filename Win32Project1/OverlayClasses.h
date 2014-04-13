@@ -42,9 +42,9 @@ public:
 	virtual void OnResize();
 	virtual void DrawScene()=0;
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	void DrawString(XMFLOAT2 position,float scale, const char* Format,...);
+	void DrawString(XMFLOAT2 position,float scale,bool center, const char* Format,...);
 	void DrawLine(FXMVECTOR pos1,FXMVECTOR pos2,FXMVECTOR color);
-
+	void DrawCircle(FXMVECTOR center,FXMVECTOR color,float radius,UINT samples);
 protected:
 	String WindowTitle;
 	UINT m_width;
@@ -206,7 +206,7 @@ bool DXOverlay::InitializeDX()
 	m_upStates.reset(new CommonStates(m_pDevice));
 	m_upSprites.reset(new SpriteBatch(m_pImmediateDeviceContext));
 	m_upFXFactory.reset(new EffectFactory(m_pDevice));
-	m_upFont.reset(new SpriteFont(m_pDevice,L"C:\\Users\\Steve\\Documents\\Visual Studio 2012\\Projects\\DX11Overlay\\italic.spritefont"));
+	m_upFont.reset(new SpriteFont(m_pDevice,L"C:\\Users\\Steve\\Documents\\Visual Studio 2012\\Projects\\DX11Overlay\\Calibri.spritefont"));
 	m_upBatch.reset( new PrimitiveBatch<VertexPositionColor>( m_pImmediateDeviceContext ) );
 
 	m_upBatchEffect.reset( new BasicEffect( m_pDevice ) );
@@ -248,13 +248,11 @@ void DXOverlay::OnResize()
 
 	m_Viewport.TopLeftX = 0;
 	m_Viewport.TopLeftY = 0;
-	m_Viewport.Width    = static_cast<float>(m_width/2);
-	m_Viewport.Height   = static_cast<float>(m_height/2);
+	m_Viewport.Width    = static_cast<float>(m_width);
+	m_Viewport.Height   = static_cast<float>(m_height);
 	m_Viewport.MinDepth = 0.0f;
 	m_Viewport.MaxDepth = 1.0f;
 	m_pImmediateDeviceContext->RSSetViewports(1, &m_Viewport);
-	
-
 }
 int DXOverlay::RunOverlay()
 {
@@ -309,7 +307,7 @@ void DXOverlay::SetToTarget()
 		MoveWindow(m_MainWndHandle, tSize.left, tSize.top,clientwidth , clientheight, true);
 	}
 }
-void DXOverlay::DrawString(XMFLOAT2 position,float scale, const char* Format,...)
+void DXOverlay::DrawString(XMFLOAT2 position,float scale,bool center, const char* Format,...)
 {
 	char Buffer[1024] = { '\0' };
 	va_list va_alist;
@@ -317,9 +315,19 @@ void DXOverlay::DrawString(XMFLOAT2 position,float scale, const char* Format,...
 	vsprintf_s(Buffer, Format, va_alist);
 	va_end(va_alist);
 	String buf=Buffer;
+	std::wstring wbuf=s2ws(buf);
+
+	XMFLOAT2 origin(0,0);
+	if(center)
+	{
+		XMVECTOR size=m_upFont->MeasureString(wbuf.c_str());
+		float sizeX=XMVectorGetX(size);
+		float sizeY=XMVectorGetY(size);
+		origin=XMFLOAT2(sizeX/2,sizeY/2);
+	}
 
 	m_upSprites->Begin( SpriteSortMode_Deferred );
-	m_upFont->DrawString(m_upSprites.get(),s2ws(buf).c_str(),position, Colors::Black,0.0f,XMFLOAT2(0,0),scale,SpriteEffects_None,0);
+	m_upFont->DrawString(m_upSprites.get(),wbuf.c_str(),position, Colors::Black,0.0f,origin,scale,SpriteEffects_None,0);
 	m_upSprites->End();
 }
 void DXOverlay::DrawLine(FXMVECTOR pos1,FXMVECTOR pos2,FXMVECTOR color)
@@ -331,8 +339,28 @@ void DXOverlay::DrawLine(FXMVECTOR pos1,FXMVECTOR pos2,FXMVECTOR color)
 	VertexPositionColor draw1(pos1,color);
 	VertexPositionColor draw2(pos2,color);
 	m_upBatch->DrawLine(draw1,draw2);
-
 	m_upBatch->End();
+}
+void DXOverlay::DrawCircle(FXMVECTOR center,FXMVECTOR color,float radius,UINT samples)
+{
+	float Angle = (360.0f/samples)*(3.1415926f/180); //to radians
+
+	float Cos = cos(Angle);
+	float Sin = sin(Angle);
+
+	XMVECTOR vec={radius,0};
+
+	for(unsigned short i = 0;i < samples;++i)
+	{
+		XMVECTOR rot={Cos*XMVectorGetX(vec) - Sin*XMVectorGetY(vec) , Sin*XMVectorGetX(vec) + Cos*XMVectorGetY(vec) };
+		rot += center;
+		vec += center;
+		//D3DDrawLine(vec.x,vec.y,rot.x,rot.y,color,pDev);
+		XMVECTOR pos1={XMVectorGetX(vec),XMVectorGetY(vec)};
+		XMVECTOR pos2={XMVectorGetX(rot),XMVectorGetY(rot)};
+		DrawLine(pos1,pos2,color);
+		vec = rot - center;
+	}
 }
 LRESULT DXOverlay::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {

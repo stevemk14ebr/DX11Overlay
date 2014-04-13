@@ -20,7 +20,7 @@ D3DApp::D3DApp(String title,UINT width,UINT height,HINSTANCE inst,String target,
 }
 D3DApp::~D3DApp()
 {
-
+	
 }
 void D3DApp::DrawScene()
 {
@@ -33,12 +33,13 @@ void D3DApp::DrawScene()
 	m_pImmediateDeviceContext->ClearRenderTargetView(m_pRenderTargetView, reinterpret_cast<const float*>(&clearColor));
 	m_pImmediateDeviceContext->OMSetBlendState( m_pAlphaOnBlendState, blend, 0xffffffff );
 	
-	DrawString(XMFLOAT2(0,0),.5f,"Width:%d Height:%d",m_width,m_height);
+	DrawString(XMFLOAT2(m_width/2,m_height/2),1.0f,true,"Width:%d Height:%d",m_width,m_height);
+	
+	XMVECTOR pos1={m_width/2,m_height/2+1};
+	XMVECTOR pos2={m_width/2,m_height/2-1};
+	DrawLine(pos1,pos2,Colors::Red);
 
-	XMVECTOR pos1={m_width,m_height};
-	XMVECTOR pos2={0,0};
-	DrawLine(pos1,pos2,Colors::Black);
-
+	DrawCircle(pos1,Colors::Green,30,30);
 	m_pImmediateDeviceContext->OMSetBlendState( m_pAlphaOffBlendState, blend, 0xffffffff );
 	HR(m_pSwapChain->Present(0, 0));
 }
