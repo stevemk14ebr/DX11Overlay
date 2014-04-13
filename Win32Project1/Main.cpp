@@ -31,10 +31,15 @@ void D3DApp::DrawScene()
 	float blend[4]={0};
 		
 	m_pImmediateDeviceContext->ClearRenderTargetView(m_pRenderTargetView, reinterpret_cast<const float*>(&clearColor));
-	m_pImmediateDeviceContext->OMSetBlendState( m_pBlendState, blend, 0xffffffff ); 
+	m_pImmediateDeviceContext->OMSetBlendState( m_pAlphaOnBlendState, blend, 0xffffffff );
+	
+	DrawString(XMFLOAT2(0,0),.5f,"Width:%d Height:%d",m_width,m_height);
 
-	float colors[4]={0.0f,0.0f,255.0f,255.0f};
-	DrawLine(D3DXVECTOR2(0,10),D3DXVECTOR2(100,100),colors);
+	XMVECTOR pos1={m_width,m_height};
+	XMVECTOR pos2={0,0};
+	DrawLine(pos1,pos2,Colors::Black);
+
+	m_pImmediateDeviceContext->OMSetBlendState( m_pAlphaOffBlendState, blend, 0xffffffff );
 	HR(m_pSwapChain->Present(0, 0));
 }
 
@@ -46,7 +51,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	D3DApp app("Overlay",600,600,hInstance,"Battlefield 4",4);
+	D3DApp app("Overlay",600,600,hInstance,"Untitled - Notepad",4);
 	app.MakeWindow();
 	app.InitializeDX();
 	app.SetToTarget();

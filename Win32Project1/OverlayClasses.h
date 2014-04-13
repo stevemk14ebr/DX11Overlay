@@ -1,6 +1,4 @@
 #define ReleaseCOM(x) { if(x){ x->Release(); x = 0; } }
-#include "shader_fx.h"
-
 
 
 #ifndef UNICODE  
@@ -32,13 +30,6 @@ typedef std::wstring String;
 #endif
 #endif 
 
-
-struct Vertex
-{
-	XMFLOAT3 Position;
-	XMCOLOR Color;
-};
-
 class DXOverlay
 {
 public:
@@ -51,11 +42,9 @@ public:
 	virtual void OnResize();
 	virtual void DrawScene()=0;
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	void DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,float color[4]);
-	void DrawRect(D3DXVECTOR2 lowerleft,D3DXVECTOR2 upperright,float color[4]);
-	void DrawCircle(D3DXVECTOR2 center,float radius,int samples,float color[4]);
-	void DrawText(D3DXVECTOR2 position,const char* format,...);
-	void DrawTexture(D3DXVECTOR2 position);
+	void DrawString(XMFLOAT2 position,float scale, const char* Format,...);
+	void DrawLine(FXMVECTOR pos1,FXMVECTOR pos2,FXMVECTOR color);
+
 protected:
 	String WindowTitle;
 	UINT m_width;
@@ -76,13 +65,16 @@ protected:
 	D3D_DRIVER_TYPE m_DriverType;
 	D3D11_VIEWPORT m_Viewport;
 	D3D11_BLEND_DESC m_BlendStateDesc;
-	ID3D11BlendState* m_pBlendState;
-	D3D11_BUFFER_DESC m_BufferDesc;
-	ID3D11Buffer* m_pVertexBuffer;
-	ID3D10Blob* m_ShaderFX;
-	ID3DX11Effect* m_pShaderEffect;
-	ID3DX11EffectTechnique* m_pTechnique;
-	ID3D11InputLayout* m_pInputLayout;
+	ID3D11BlendState* m_pAlphaOnBlendState;
+	ID3D11BlendState* m_pAlphaOffBlendState;
+	ID3D11InputLayout* m_pBatchInputLayout;
+
+	std::unique_ptr<CommonStates>                           m_upStates;
+	std::unique_ptr<EffectFactory>                          m_upFXFactory;
+	std::unique_ptr<SpriteBatch>                            m_upSprites;
+	std::unique_ptr<SpriteFont>                             m_upFont;
+	std::unique_ptr<PrimitiveBatch<VertexPositionColor>>    m_upBatch;
+	std::unique_ptr<BasicEffect>                            m_upBatchEffect;
 };
 namespace
 {
@@ -205,36 +197,41 @@ bool DXOverlay::InitializeDX()
 	m_BlendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO; 
 	m_BlendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD; 
 	m_BlendStateDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f; 
-	HR(m_pDevice->CreateBlendState(&m_BlendStateDesc,&m_pBlendState));
+	HR(m_pDevice->CreateBlendState(&m_BlendStateDesc,&m_pAlphaOnBlendState));
 
-	m_BufferDesc.Usage            = D3D11_USAGE_DYNAMIC; 
-	m_BufferDesc.ByteWidth        = 31 * sizeof(Vertex); 
-	m_BufferDesc.BindFlags        = D3D11_BIND_VERTEX_BUFFER; 
-	m_BufferDesc.CPUAccessFlags    = D3D11_CPU_ACCESS_WRITE; 
-	m_BufferDesc.MiscFlags        = 0; 
-	HR(m_pDevice->CreateBuffer(&m_BufferDesc,NULL,&m_pVertexBuffer));
+	m_BlendStateDesc.RenderTarget[0].BlendEnable=false;
+	HR(m_pDevice->CreateBlendState(&m_BlendStateDesc,&m_pAlphaOffBlendState));
 
-	m_ShaderFX=NULL;
-	ID3D10Blob* pError=NULL;
-	HR(D3DX11CompileFromMemory(shaderRaw,strlen(shaderRaw),"FillTechFx",NULL,NULL,"FillTech","fx_5_0",NULL,NULL,NULL,&m_ShaderFX,&pError,NULL));
-	HR(D3DX11CreateEffectFromMemory(m_ShaderFX->GetBufferPointer(),m_ShaderFX->GetBufferSize(),0,m_pDevice,&m_pShaderEffect));
-	ReleaseCOM(m_ShaderFX);
+	////////////DXTK STUFF/////////////
+	m_upStates.reset(new CommonStates(m_pDevice));
+	m_upSprites.reset(new SpriteBatch(m_pImmediateDeviceContext));
+	m_upFXFactory.reset(new EffectFactory(m_pDevice));
+	m_upFont.reset(new SpriteFont(m_pDevice,L"C:\\Users\\Steve\\Documents\\Visual Studio 2012\\Projects\\DX11Overlay\\italic.spritefont"));
+	m_upBatch.reset( new PrimitiveBatch<VertexPositionColor>( m_pImmediateDeviceContext ) );
 
-	m_pTechnique=m_pShaderEffect->GetTechniqueByName("FillTech");
-	
-	D3D11_INPUT_ELEMENT_DESC lineLayout[] = 
-	{ 
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },   
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 } 
-	}; 
+	m_upBatchEffect.reset( new BasicEffect( m_pDevice ) );
+	m_upBatchEffect->SetVertexColorEnabled(true);
 
-	D3DX11_PASS_DESC passDesc;
-	HR(m_pTechnique->GetPassByIndex(0)->GetDesc(&passDesc));
-	HR(m_pDevice->CreateInputLayout(lineLayout,sizeof(lineLayout)/sizeof(lineLayout[0]),passDesc.pIAInputSignature, passDesc.IAInputSignatureSize, &m_pInputLayout));
+	void const* shaderByteCode;
+	size_t byteCodeLength;
+
+	m_upBatchEffect->GetVertexShaderBytecode( &shaderByteCode, &byteCodeLength );
+
+	HR(m_pDevice->CreateInputLayout( VertexPositionColor::InputElements,
+			VertexPositionColor::InputElementCount,
+			shaderByteCode, byteCodeLength,
+			&m_pBatchInputLayout));
+
 	OnResize();
 }
 void DXOverlay::OnResize()
 {
+	XMMATRIX Projection =XMMatrixOrthographicOffCenterRH(0.0f,m_width,m_height,0.0f,0.0f,1.0f); //XMMatrixPerspectiveFovLH( XM_PIDIV4, width / (FLOAT)height, 0.01f, 100.0f );
+	m_upBatchEffect->SetProjection( Projection );
+	m_upBatchEffect->SetWorld(XMMatrixIdentity());
+	m_upBatchEffect->SetView(XMMatrixIdentity()); //g_view
+	// Initialize the projection matrix
+
 	assert(m_pImmediateDeviceContext);
 	assert(m_pDevice);
 	assert(m_pSwapChain);
@@ -257,6 +254,7 @@ void DXOverlay::OnResize()
 	m_Viewport.MaxDepth = 1.0f;
 	m_pImmediateDeviceContext->RSSetViewports(1, &m_Viewport);
 	
+
 }
 int DXOverlay::RunOverlay()
 {
@@ -310,6 +308,31 @@ void DXOverlay::SetToTarget()
 		m_height=clientheight;
 		MoveWindow(m_MainWndHandle, tSize.left, tSize.top,clientwidth , clientheight, true);
 	}
+}
+void DXOverlay::DrawString(XMFLOAT2 position,float scale, const char* Format,...)
+{
+	char Buffer[1024] = { '\0' };
+	va_list va_alist;
+	va_start(va_alist, Format);
+	vsprintf_s(Buffer, Format, va_alist);
+	va_end(va_alist);
+	String buf=Buffer;
+
+	m_upSprites->Begin( SpriteSortMode_Deferred );
+	m_upFont->DrawString(m_upSprites.get(),s2ws(buf).c_str(),position, Colors::Black,0.0f,XMFLOAT2(0,0),scale,SpriteEffects_None,0);
+	m_upSprites->End();
+}
+void DXOverlay::DrawLine(FXMVECTOR pos1,FXMVECTOR pos2,FXMVECTOR color)
+{
+	m_upBatchEffect->Apply(m_pImmediateDeviceContext);
+	m_pImmediateDeviceContext->IASetInputLayout(m_pBatchInputLayout);
+	m_upBatch->Begin();
+
+	VertexPositionColor draw1(pos1,color);
+	VertexPositionColor draw2(pos2,color);
+	m_upBatch->DrawLine(draw1,draw2);
+
+	m_upBatch->End();
 }
 LRESULT DXOverlay::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -408,66 +431,11 @@ DXOverlay::~DXOverlay()
 		m_pImmediateDeviceContext->ClearState();
 	ReleaseCOM(m_pImmediateDeviceContext);
 	ReleaseCOM(m_pSwapChain);
-}
-void DXOverlay::DrawLine(D3DXVECTOR2 start,D3DXVECTOR2 end,float color[4])
-{
-	D3D11_VIEWPORT vp; 
-	UINT vpnum=1;
-	m_pImmediateDeviceContext->RSGetViewports(&vpnum,&vp);
 
-	float x0 = 2.0f * ( start.x - 0.5f ) / vp.Width - 1.0f; 
-	float y0 = 1.0f - 2.0f * ( start.y - 0.5f ) / vp.Height; 
-	float x1 = 2.0f * ( end.x - 0.5f ) / vp.Width - 1.0f; 
-	float y1 = 1.0f - 2.0f * ( end.y - 0.5f ) / vp.Height; 
-
-	D3D11_MAPPED_SUBRESOURCE mapData;
-	Vertex* pVertex;
-
-	HR(m_pImmediateDeviceContext->Map(m_pVertexBuffer,NULL,D3D11_MAP_WRITE_DISCARD,NULL,&mapData));
-	pVertex=(Vertex*)mapData.pData;
-
-	pVertex[0].Position.x=x0;
-	pVertex[0].Position.y=y0;
-	pVertex[0].Position.z=0;
-	pVertex[0].Color.r=color[0]/255.0f;
-	pVertex[0].Color.g=color[1]/255.0f;
-	pVertex[0].Color.b=color[2]/255.0f;
-	pVertex[0].Color.a=color[3]/255.0f;
-
-	pVertex[1].Position.x=x1;
-	pVertex[1].Position.y=y1;
-	pVertex[1].Position.z=0;
-	pVertex[1].Color.r=color[0]/255.0f;
-	pVertex[1].Color.g=color[1]/255.0f;
-	pVertex[1].Color.b=color[2]/255.0f;
-	pVertex[1].Color.a=color[3]/255.0f;
-
-	m_pImmediateDeviceContext->Unmap(m_pVertexBuffer,NULL);
-	m_pImmediateDeviceContext->IASetInputLayout(m_pInputLayout);
-	UINT Stride=sizeof(Vertex);
-	UINT Offset=0;
-
-	m_pImmediateDeviceContext->IASetVertexBuffers(0,1,&m_pVertexBuffer,&Stride,&Offset);
-	m_pImmediateDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-
-	D3DX11_TECHNIQUE_DESC tech;
-	HR(m_pTechnique->GetDesc(&tech));
-	for(int i=0;i<tech.Passes;i++)
-	{
-		m_pTechnique->GetPassByIndex(i)->Apply(0,m_pImmediateDeviceContext);
-		m_pImmediateDeviceContext->Draw(2,0);
-	}
-}
-
-void DXOverlay::DrawRect(D3DXVECTOR2 lowerleft,D3DXVECTOR2 upperright,float color[4])
-{
-
-}
-void DXOverlay::DrawCircle(D3DXVECTOR2 center,float radius,int samples,float color[4])
-{
-
-}
-void DXOverlay::DrawTexture(D3DXVECTOR2 position)
-{
-	
+	m_upStates.release();
+	m_upFXFactory.release();
+	m_upSprites.release();
+	m_upFont.release();
+	m_upBatch.release();
+	m_upBatchEffect.release();
 }

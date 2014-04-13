@@ -3,8 +3,25 @@
 #include <crtdbg.h>
 #endif
 
+#include <directxmath.h>
+#define NOMINMAX
+
+#include "CommonStates.h"
+#include "DDSTextureLoader.h"
+#include "Effects.h"
+#include "GeometricPrimitive.h"
+#include "Model.h"
+#include "PrimitiveBatch.h"
+#include "ScreenGrab.h"
+#include "SpriteBatch.h"
+#include "SpriteFont.h"
+#include "VertexTypes.h"
+
+
+using namespace DirectX;
+
+
 #include <d3dx11.h>
-#include <xnamath.h>
 #include <dxerr.h>
 #include <cassert>
 #include <ctime>
@@ -16,13 +33,24 @@
 #include <windowsx.h>
 #include <Uxtheme.h>
 #include <dwmapi.h>
-#include <d3dx11effect.h>
 #include <D3DX10math.h>
 #include <d3d9types.h>
+#include <d3d11.h>
 
-#pragma comment(lib, "Effects11.lib");
+#pragma comment(lib,"DirectXTK.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
 #pragma comment(lib, "DXErr.lib")
 #pragma comment(lib, "dwmapi.lib")
-#pragma comment(lib,"d3dcompiler.lib")
+
+std::wstring s2ws(const std::string& s)
+{
+	int len;
+	int slength = (int)s.length() + 1;
+	len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0); 
+	wchar_t* buf = new wchar_t[len];
+	MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
+	std::wstring r(buf);
+	delete[] buf;
+	return r;
+}
